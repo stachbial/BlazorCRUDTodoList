@@ -1,0 +1,144 @@
+﻿@using TodoListSB76764.Data.TodoData;
+@inject TodoService _todoService;
+
+<div class="container-sm">
+    <div class="border p-4" style="background-color: #000000; color: #fff; border-radius: 20px;">
+        <h4>New Task</h4>
+        <TodoItemForm OnItemAdded="@ItemsChangedAsync" />
+    </div>
+
+    <div class="d-flex gap-3 justify-content-center align-items-center py-4">
+        <p class="m-0">Show:</p>
+
+        <select class="form-select" aria-label="Displayed Todos Category" @onchange="@handleFilterChanged">
+            <option selected value=@Filter.All>All</option>
+            <option value=@Filter.Completed>Completed</option>
+            <option value=@Filter.UnCompleted>Uncompleted</option> 
+        </select>
+    </div>
+
+    <div class="todo-wrapper mt-2" >
+        @if (_todoItems.Count() <= 0)
+        {
+            <p>No todos added yet.</p>
+        }
+        else if (filteredTodoItems.Count() <= 0)
+        {
+            <p>No todos within the filter criteria found.</p>
+        }
+        else
+        {
+            <div class="d-flex flex-column ">
+                @foreach (var todo in filteredTodoItems)
+                {
+                    <div class="mb-2 p-2 d-flex justify-content-between center border-bottom rounded-3 flex-wrap">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="@ItemClass(todo)" >@todo.Text</div>
+                        </div>
+                        <div class="d-flex">
+                        @if (todo.Completed)
+                        {
+                            <div style="width: 120px">
+                                <button class="btn btn-primary" @onclick="() => ToggleCompleteItemAsync(todo)">Uncomplete</button>
+                            </div>
+                        }
+                        @if (!todo.Completed)
+                        {
+                            <div style="width: 120px">
+                                <button class="btn btn-primary" @onclick="() => ToggleCompleteItemAsync(todo)">Complete</button>
+                            </div>
+                        }
+                        <div>
+                            <button class="btn btn-danger" @onclick="() => DeleteItemAsync(todo)">Delete</button>
+                        </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? authenticationStateTask { get; set; }
+
+    public enum Filter { All, Completed, UnCompleted }
+
+    private Filter _filter = Filter.All;
+    private IList<TodoItem> _todoItems = new List<TodoItem>();
+    private IList<TodoItem> filteredTodoItems = new List<TodoItem>();
+    private string UserIdentityName = "";
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (authenticationStateTask != null)
+        {
+            var user = (await authenticationStateTask).User;
+            if (user.Identity != null)
+            {
+                UserIdentityName = user.Identity.Name ?? "";
+            }
+        }
+        var result = await _todoService.GetAllTodoItemsAsync(UserIdentityName);
+        _todoItems = result.ToList();
+
+        filteredTodoItems = getFilteredTodos(_todoItems.ToList(), _filter);
+    }
+
+    public List<TodoItem> getFilteredTodos(List<TodoItem> items, Filter filter)
+    {
+        switch (filter)
+        {
+            case Filter.Completed:
+                return _todoItems.Where(item => item.Completed).ToList();
+
+            case Filter.UnCompleted:
+                return _todoItems.Where(item => !item.Completed).ToList();
+
+            default:
+                return _todoItems.ToList();
+
+        }
+    }
+    public void handleFilterChanged(ChangeEventArgs args)
+    {   
+        if (args != null && args.Value != null && Enum.TryParse<Filter>((string)args.Value, out _filter))
+        {
+            filteredTodoItems = getFilteredTodos(_todoItems.ToList(), _filter);
+            StateHasChanged();
+        }
+    }
+
+    public string ItemClass(TodoItem item)
+    {
+        return item.Completed ? "item-completed" : "";
+    }
+
+    public async Task ItemsChangedAsync()
+    {
+        var result = await _todoService.GetAllTodoItemsAsync(UserIdentityName);
+        _todoItems = result.ToList();
+        filteredTodoItems = getFilteredTodos(_todoItems.ToList(), _filter);
+        StateHasChanged();
+    }
+
+    public async Task DeleteItemAsync(TodoItem item)
+    {
+        await _todoService.DeleteTodoItemAsync(item.Id, UserIdentityName);
+        await ItemsChangedAsync();
+    }
+
+    public async Task ToggleCompleteItemAsync(TodoItem item)
+    {
+        var newCompleteStatus = !item.Completed;
+        var result = await _todoService.UpdateTodoItemStatus(item.Id, newCompleteStatus,UserIdentityName);
+        if (result != null)
+        {
+            await ItemsChangedAsync();
+        }
+
+    }
+
+}

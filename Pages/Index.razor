@@ -1,0 +1,18 @@
+﻿@page "/"
+
+<PageTitle>Home - Todo List App</PageTitle>
+
+
+<div class="container">
+<h1>Todo List App - SB 76764</h1>
+<br/>
+    <AuthorizeView>
+        <Authorized>
+            <TodoListSB76764.Shared.Todo.TodoList />
+        </Authorized>
+        <NotAuthorized>
+            <h4>Please log in or register to start managing Your tasks.</h4>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+
